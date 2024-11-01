@@ -1,8 +1,11 @@
+const express = require('express');
 const net = require('net');
-const readline = require('readline');
 const os = require('os');
 
+const app = express();
 const clients = new Map();
+
+app.use(express.json());
 
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
@@ -15,34 +18,7 @@ function getLocalIP() {
             }
         }
     }
-    return '0.0.0.0'; // Fallback to all interfaces if no specific IP is found
-}
-
-function handleClient(socket, port) {
-    console.log(`Nuevo cliente conectado en puerto ${port}: ${socket.remoteAddress}:${socket.remotePort}`);
-    clients.set(socket, port);
-
-    socket.on('data', (data) => {
-        const [encryptedMessage, key] = data.toString().split('|');
-        console.log(`Mensaje recibido de ${socket.remoteAddress}:${socket.remotePort} en puerto ${port}`);
-
-        // Reenvía el mensaje cifrado y la clave a todos los clientes en este puerto
-        for (const [clientSocket, clientPort] of clients.entries()) {
-            if (clientSocket !== socket && clientPort === port) {
-                clientSocket.write(`${encryptedMessage}|${key}`);
-            }
-        }
-    });
-
-    socket.on('end', () => {
-        console.log(`Cliente desconectado en puerto ${port}: ${socket.remoteAddress}:${socket.remotePort}`);
-        clients.delete(socket);
-    });
-
-    socket.on('error', (err) => {
-        console.error(`Error en la conexión con ${socket.remoteAddress}:${socket.remotePort} en puerto ${port}: ${err.message}`);
-        clients.delete(socket);
-    });
+    return '0.0.0.0';
 }
 
 function startServer(port) {
@@ -58,26 +34,16 @@ function startServer(port) {
 }
 
 function generateRandomPort() {
-    return Math.floor(Math.random() * (65535 - 1024 + 1)) + 1024; // Puertos entre 1024 y 65535
+    return Math.floor(Math.random() * (65535 - 1024 + 1)) + 1024;
 }
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
+app.get('/generate', (req, res) => {
+    const port = generateRandomPort();
+    startServer(port);
+    const url = `http://${getLocalIP()}:${port}`; // Generar URL con IP local y puerto
+    res.json({ link: url });
 });
 
-function promptForNewPort() {
-    rl.question('¿Deseas generar un nuevo puerto para el servidor? (s/n): ', (answer) => {
-        if (answer.toLowerCase() === 's') {
-            const port = generateRandomPort();
-            startServer(port);
-            promptForNewPort(); // Preguntar de nuevo
-        } else {
-            console.log('Servidor cerrado.');
-            rl.close();
-        }
-    });
-}
-
-// Iniciar el proceso
-promptForNewPort();
+app.listen(5000, () => {
+    console.log('API escuchando en http://localhost:5000');
+});
