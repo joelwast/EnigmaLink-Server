@@ -32,6 +32,34 @@ server.on('error', (err, clientSocket) => {
     }
 });
 
-// Iniciar el servidor
-const port = process.env.PORT || 5000; // Usar el puerto de la variable de entorno
-server.start(port);
+// Función para encontrar un puerto disponible
+const findAvailablePort = (startPort, endPort) => {
+    return new Promise((resolve, reject) => {
+        const tryPort = (port) => {
+            const testServer = net.createServer();
+            testServer.listen(port, () => {
+                testServer.close(() => resolve(port)); // Puerto disponible
+            });
+            testServer.on('error', () => {
+                if (port < endPort) {
+                    tryPort(port + 1); // Intentar el siguiente puerto
+                } else {
+                    reject(new Error('No hay puertos disponibles en el rango especificado.'));
+                }
+            });
+        };
+        tryPort(startPort);
+    });
+};
+
+// Iniciar el servidor en un puerto disponible
+const startServer = async () => {
+    try {
+        const availablePort = await findAvailablePort(5000, 5100);
+        server.start(availablePort);
+    } catch (error) {
+        console.error(error.message);
+    }
+};
+
+startServer();
