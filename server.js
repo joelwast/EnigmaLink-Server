@@ -1,4 +1,4 @@
-const net = require('net');
+const http = require('http');
 const os = require('os');
 const EventEmitter = require('events');
 
@@ -11,7 +11,13 @@ class MessagingServer extends EventEmitter {
 
     // Método para iniciar el servidor
     start(port) {
-        this.server = net.createServer((clientSocket) => {
+        this.server = http.createServer((req, res) => {
+            // Manejar diferentes tipos de solicitudes HTTP
+            res.writeHead(200, {'Content-Type': 'text/plain'});
+            res.end('Hello, world!\n'); // Respuesta básica para comprobar que el servidor funciona
+        });
+
+        this.server.on('connection', (clientSocket) => {
             this.clients.push(clientSocket);
             this.emit('clientConnected', clientSocket);
 

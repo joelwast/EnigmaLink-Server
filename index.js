@@ -33,7 +33,5 @@ server.on('error', (err, clientSocket) => {
 });
 
 // Iniciar el servidor
-const port = 5050; // Puedes cambiar este puerto según tus necesidades
+const port = process.env.PORT || 5050; // Usar el puerto de la variable de entorno
 server.start(port);
-
-// Para detener el servidor, puedes usar server.stop() en el futuro
