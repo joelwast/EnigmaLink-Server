@@ -1,3 +1,4 @@
+const net = require('net'); // Importar el módulo net
 const MessagingServer = require('./server');
 
 // Crear una instancia del servidor
