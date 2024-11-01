@@ -2,7 +2,7 @@ const net = require('net');
 const readline = require('readline');
 const os = require('os');
 
-const clients = new Set();
+const clients = new Map();
 
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
@@ -18,31 +18,47 @@ function getLocalIP() {
     return '0.0.0.0'; // Fallback to all interfaces if no specific IP is found
 }
 
-function handleClient(socket) {
-    console.log(`Nuevo cliente conectado: ${socket.remoteAddress}:${socket.remotePort}`);
-    clients.add(socket);
+function handleClient(socket, port) {
+    console.log(`Nuevo cliente conectado en puerto ${port}: ${socket.remoteAddress}:${socket.remotePort}`);
+    clients.set(socket, port);
 
     socket.on('data', (data) => {
         const [encryptedMessage, key] = data.toString().split('|');
-        console.log(`Mensaje recibido de ${socket.remoteAddress}:${socket.remotePort}`);
+        console.log(`Mensaje recibido de ${socket.remoteAddress}:${socket.remotePort} en puerto ${port}`);
 
-        // Reenvía el mensaje cifrado y la clave a todos los clientes, excepto al remitente
-        for (const client of clients) {
-            if (client !== socket) {
-                client.write(`${encryptedMessage}|${key}`);
+        // Reenvía el mensaje cifrado y la clave a todos los clientes en este puerto
+        for (const [clientSocket, clientPort] of clients.entries()) {
+            if (clientSocket !== socket && clientPort === port) {
+                clientSocket.write(`${encryptedMessage}|${key}`);
             }
         }
     });
 
     socket.on('end', () => {
-        console.log(`Cliente desconectado: ${socket.remoteAddress}:${socket.remotePort}`);
+        console.log(`Cliente desconectado en puerto ${port}: ${socket.remoteAddress}:${socket.remotePort}`);
         clients.delete(socket);
     });
 
     socket.on('error', (err) => {
-        console.error(`Error en la conexión con ${socket.remoteAddress}:${socket.remotePort}: ${err.message}`);
+        console.error(`Error en la conexión con ${socket.remoteAddress}:${socket.remotePort} en puerto ${port}: ${err.message}`);
         clients.delete(socket);
     });
+}
+
+function startServer(port) {
+    const server = net.createServer((socket) => handleClient(socket, port));
+
+    server.listen(port, getLocalIP(), () => {
+        console.log(`Servidor escuchando en ${getLocalIP()}:${port}`);
+    });
+
+    server.on('error', (err) => {
+        console.error(`Error en el servidor en puerto ${port}: ${err.message}`);
+    });
+}
+
+function generateRandomPort() {
+    return Math.floor(Math.random() * (65535 - 1024 + 1)) + 1024; // Puertos entre 1024 y 65535
 }
 
 const rl = readline.createInterface({
@@ -50,23 +66,18 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
-rl.question('Ingresa el puerto para el servidor: ', (port) => {
-    port = parseInt(port);
-    if (isNaN(port)) {
-        console.error("El puerto debe ser un número entero válido.");
-        process.exit(1);
-    }
-
-    const server = net.createServer(handleClient);
-    const ip = getLocalIP();
-
-    server.listen(port, ip, () => {
-        console.log(`Servidor escuchando en ${ip}:${port}`);
+function promptForNewPort() {
+    rl.question('¿Deseas generar un nuevo puerto para el servidor? (s/n): ', (answer) => {
+        if (answer.toLowerCase() === 's') {
+            const port = generateRandomPort();
+            startServer(port);
+            promptForNewPort(); // Preguntar de nuevo
+        } else {
+            console.log('Servidor cerrado.');
+            rl.close();
+        }
     });
+}
 
-    server.on('error', (err) => {
-        console.error(`Error en el servidor: ${err.message}`);
-    });
-
-    rl.close();
-});
+// Iniciar el proceso
+promptForNewPort();
