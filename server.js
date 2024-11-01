@@ -1,4 +1,4 @@
-const http = require('http');
+const net = require('net');
 const os = require('os');
 const EventEmitter = require('events');
 
@@ -9,20 +9,9 @@ class MessagingServer extends EventEmitter {
         this.server = null;
     }
 
+    // Método para iniciar el servidor
     start(port) {
-        this.server = http.createServer((req, res) => {
-            // Manejo de solicitudes HTTP
-            console.log(`Solicitud recibida: ${req.method} ${req.url}`);
-
-            // Responder a la solicitud HTTP
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end('Server is running.\n'); // Respuesta básica
-
-            // Aquí puedes agregar lógica adicional para manejar diferentes rutas
-            // Por ejemplo, si tienes una ruta específica para WebSocket
-        });
-
-        this.server.on('connection', (clientSocket) => {
+        this.server = net.createServer((clientSocket) => {
             this.clients.push(clientSocket);
             this.emit('clientConnected', clientSocket);
 
@@ -30,7 +19,7 @@ class MessagingServer extends EventEmitter {
                 const message = data.toString();
                 this.emit('messageReceived', clientSocket, message);
 
-                // Reenvío a todos los demás clientes
+                // Reenvía el mensaje a todos los clientes, excepto al remitente
                 this.clients.forEach(client => {
                     if (client !== clientSocket) {
                         client.write(message);
@@ -70,6 +59,7 @@ class MessagingServer extends EventEmitter {
         });
     }
 
+    // Método para detener el servidor
     stop() {
         if (this.server) {
             this.server.close(() => {
@@ -79,4 +69,5 @@ class MessagingServer extends EventEmitter {
     }
 }
 
+// Exportar la clase
 module.exports = MessagingServer;
