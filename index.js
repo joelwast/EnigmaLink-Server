@@ -1,10 +1,12 @@
 const express = require('express');
 const net = require('net');
 const os = require('os');
+const cors = require('cors');
 
 const app = express();
 const clients = new Map();
 
+app.use(cors()); // Habilitar CORS
 app.use(express.json());
 
 function getLocalIP() {
